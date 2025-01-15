@@ -1,5 +1,7 @@
 # Civic Auth Web3 Integration: Project Insights and Setup Guide
 
+![Demo /Image](./demo.png)
+
 ## Table of Contents
 
 - [Introduction](#introduction)
