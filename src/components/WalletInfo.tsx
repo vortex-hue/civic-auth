@@ -1,22 +1,21 @@
 // src/components/WalletInfo.tsx
 import React, { useState, useEffect } from "react";
 import { useUser } from "@civic/auth-web3/react";
-import { BrowserProvider, formatEther } from "ethers";
+import { formatEther } from "ethers";
 import { WalletInfo as IWalletInfo } from "../types";
+import { userHasWallet } from "@civic/auth-web3";
 
 const WalletInfo: React.FC = () => {
-  const { user } = useUser();
+  const userContext = useUser();
   const [walletInfo, setWalletInfo] = useState<IWalletInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const getWalletInfo = async (): Promise<void> => {
-      if (user && window.ethereum) {
+      if (userContext.user && userHasWallet(userContext)) {
         try {
-          const provider = new BrowserProvider(window.ethereum);
-          const signer = await provider.getSigner();
-          const address = await signer.getAddress();
-          const balanceWei = await provider.getBalance(address);
+          const address = userContext.walletAddress;
+          const balanceWei = await userContext.wallet.getBalance({ address });
           const balanceEth = formatEther(balanceWei);
 
           setWalletInfo({
@@ -34,9 +33,24 @@ const WalletInfo: React.FC = () => {
     };
 
     getWalletInfo();
-  }, [user]);
+  }, [userContext]);
 
-  if (!user) return null;
+  const createWallet = async () => {
+    if (userContext.user && !userHasWallet(userContext)) {
+      try {
+        await userContext.createWallet();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Error creating wallet");
+        console.error("Error creating wallet:", err);
+        // Display a user-friendly error message
+        alert(
+          "Failed to create wallet. Please try again later or contact support."
+        );
+      }
+    }
+  };
+
+  if (!userContext.user) return null;
 
   return (
     <div className="p-6 bg-white rounded-lg shadow-md">
@@ -48,20 +62,32 @@ const WalletInfo: React.FC = () => {
         </div>
       )}
 
-      {walletInfo ? (
-        <>
-          <div className="mb-4">
-            <p className="text-gray-600">Address:</p>
-            <p className="font-mono break-all">{walletInfo.address}</p>
-          </div>
+      {userHasWallet(userContext) ? (
+        walletInfo ? (
+          <>
+            <div className="mb-4">
+              <p className="text-gray-600">Address:</p>
+              <p className="font-mono break-all">{walletInfo.address}</p>
+            </div>
 
-          <div className="mb-6">
-            <p className="text-gray-600">Balance:</p>
-            <p className="text-xl font-bold">{walletInfo.balance} ETH</p>
-          </div>
-        </>
+            <div className="mb-6">
+              <p className="text-gray-600">Balance:</p>
+              <p className="text-xl font-bold">{walletInfo.balance} ETH</p>
+            </div>
+          </>
+        ) : (
+          <p className="text-gray-600">Loading wallet information...</p>
+        )
       ) : (
-        <p className="text-gray-600">Loading wallet information...</p>
+        <>
+          <p className="text-gray-600 mb-4">No wallet found.</p>
+          <button
+            className="bg-blue-500 text-white px-4 py-2 rounded"
+            onClick={createWallet}
+          >
+            Create Wallet
+          </button>
+        </>
       )}
     </div>
   );
